@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../micro_mouse"
+		},
+		{
+			"name": "micro_mouse",
+			"path": "../.."
+		}
+	],
+	"settings": {}
+}

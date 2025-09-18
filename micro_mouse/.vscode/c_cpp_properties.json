@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "~/.platformio/packages/framework-arduinopico/cores/rp2040",
+                "~/.platformio/packages/framework-arduinopico/variants/rpipico",
+                "~/.platformio/packages/framework-arduinopico/libraries/**",
+                "~/.platformio/packages/framework-freertos/freertos/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
