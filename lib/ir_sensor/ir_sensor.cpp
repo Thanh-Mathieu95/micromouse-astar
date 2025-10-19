@@ -1,60 +1,30 @@
 #include "ir_sensor.h"
-
-volatile int16_t sensorValues[4] = {0, 0, 0, 0};
-SemaphoreHandle_t sensorMutex;
+int16_t sensorValues[4] = {0, 0, 0, 0};
 
 void initSensors() {
-    adc_init();
-    adc_gpio_init(PIN_ADC0);
-    adc_gpio_init(PIN_ADC1);
-    adc_gpio_init(PIN_ADC2);
-    adc_gpio_init(PIN_ADC3);
 
+    analogReadResolution(12); // 12-bit (0–4095)
     pinMode(PIN_IR, OUTPUT);
     digitalWrite(PIN_IR, LOW);
+    delay(1000);
 
-    sensorMutex = xSemaphoreCreateMutex();
-    if (!sensorMutex) {
-        Serial.println("Failed to create sensor mutex!");
-    }
 }
 
-void taskReadSensors(void *pvParameters) {
-    const TickType_t xDelay = pdMS_TO_TICKS(50); // đọc mỗi 50ms
+void update_ir(){
+  digitalWrite(9,HIGH);
+  delay(10);
+  sensorValues[0] = analogRead(PIN_ADC0);
 
-    for (;;) {
-        if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
-            uint16_t rawValues[4];
-            uint16_t irValues[4];
+  sensorValues[1] = analogRead(PIN_ADC1);
 
-            // Đọc khi IR tắt
-            for (int i = 0; i < 4; i++) {
-                adc_select_input(PIN_ADC0 + i - 26);
-                rawValues[i] = adc_read();
-            }
+  sensorValues[2] = analogRead(PIN_ADC2);
 
-            // Bật IR
-            digitalWrite(PIN_IR, HIGH);
-            vTaskDelay(pdMS_TO_TICKS(5));
-
-            // Đọc khi IR bật
-            for (int i = 0; i < 4; i++) {
-                adc_select_input(PIN_ADC0 + i - 26);
-                irValues[i] = adc_read();
-            }
-
-            // Tắt IR
-            digitalWrite(PIN_IR, LOW);
-
-            // Lưu chênh lệch vào biến toàn cục
-            for (int i = 0; i < 4; i++) {
-                sensorValues[i] = (int16_t)(irValues[i] ) //- rawValues[i]
-                ;
-            }
-
-            xSemaphoreGive(sensorMutex);
-        }
-        vTaskDelay(xDelay);
-    }
+  sensorValues[3] = analogRead(PIN_ADC3);
+  digitalWrite(9,LOW);
+  delay(10);
+    sensorValues[0] -= analogRead(PIN_ADC0);
+      sensorValues[1] -= analogRead(PIN_ADC1);
+        sensorValues[2] -= analogRead(PIN_ADC2);
+  sensorValues[3] -= analogRead(PIN_ADC3);
 }
-
+            

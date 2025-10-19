@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "micro_mouse_cpp",
+			"path": "../../PlatformIO/Projects/micro_mouse_cpp"
+		},
+		{
+			"name": "essp32_s3_arduino_platform",
+			"path": "../../PlatformIO/Projects/essp32_s3_arduino_platform"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"vector": "cpp",
+			"thread": "cpp"
+		}
+	}
+}

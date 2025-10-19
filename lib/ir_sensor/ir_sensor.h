@@ -1,20 +1,14 @@
 #ifndef SENSORS_H
 #define SENSORS_H
-
+#pragma once
 #include <Arduino.h>
-#include <FreeRTOS.h>
-#include <task.h>
-#include <semphr.h>
-#include "hardware/adc.h"
 #include "variables.h"
 
-extern volatile int16_t sensorValues[4];
-extern SemaphoreHandle_t sensorMutex;
+extern int16_t sensorValues[4];
 
 // Hàm khởi tạo ADC và IR
 void initSensors();
 
 // Task đọc cảm biến
-void taskReadSensors(void *pvParameters);
-
+void update_ir();
 #endif // SENSORS_H
