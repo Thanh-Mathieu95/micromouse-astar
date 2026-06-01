@@ -1,64 +1,166 @@
-# Micromouse - Thuật toán và Mô phỏng
+# Micro Mouse - Maze Solving Robot
 
-Dự án này chứa mã nguồn cho cả việc mô phỏng và triển khai trên robot thật của một thuật toán tìm đường cho Micromouse.
+A Micromouse maze-solving robot built on **Raspberry Pi Pico**, implementing a multi-stage **A\* pathfinding algorithm** to navigate a 16×16 maze from start position (0,0) to the center goals. Includes both real hardware firmware and an interactive desktop simulation.
 
-## Tính năng chính
+---
 
-- **Môi trường mô phỏng C++:** Cho phép kiểm thử và trực quan hóa thuật toán một cách nhanh chóng trên máy tính.
-- **Mã nguồn cho robot (Arduino/PlatformIO):** Tệp `src/main.cpp` chứa logic hoàn chỉnh để nạp vào vi điều khiển (ví dụ: ESP32).
-- **Thuật toán tìm đường đa giai đoạn:** Một chiến lược phức tạp và mạnh mẽ để robot có thể học hỏi và tối ưu hóa đường đi.
-- **Lưu/Tải bản đồ:** Sử dụng hệ thống tệp `LittleFS` để robot có thể "ghi nhớ" mê cung đã học, ngay cả sau khi tắt nguồn.
+## Features
 
-## Thuật toán được triển khai
+- **A\* pathfinding** with realistic turn cost modeling (90°, 180°, consecutive turns)
+- **3-stage exploration strategy**: explore → return → fast run
+- **4× Sharp IR sensors** for real-time wall detection
+- **Dual DC motors** with PID-controlled encoders
+- **Desktop simulation** for algorithm testing without hardware
+- **Memory-efficient** implementation — no STL, static arrays only (MCU-safe)
+- FreeRTOS-compatible interrupt-safe design
 
-Chương trình sử dụng một thuật toán phức tạp gồm nhiều giai đoạn để đảm bảo robot vừa khám phá hiệu quả, vừa có thể chạy tốc độ một cách an toàn.
+---
 
-- **Giai đoạn 1: Khám phá (DFS)**
-  - Robot dùng thuật toán Tìm kiếm theo chiều sâu (DFS) để khám phá mê cung cho đến khi tìm thấy ô đích.
-  - Khi gặp ngõ cụt, nó sẽ đi ngược lại con đường đã đi để tìm lối rẽ mới.
+## Algorithm
 
-- **Giai đoạn 2, 4, 5: Quay về (A* Thám hiểm)**
-  - Sau khi đến đích hoặc hoàn thành một lượt chạy, robot sẽ quay về điểm xuất phát.
-  - Trong các giai đoạn này, nó dùng thuật toán A* ở chế độ "lạc quan có thưởng", tức là nó sẽ **ưu tiên đi vào các ô chưa biết** để mở rộng kiến thức về mê cung.
+The robot operates in three stages:
 
-- **Giai đoạn 3: Chạy đến đích (A* Lạc quan)**
-  - Robot chạy từ điểm xuất phát đến đích, sử dụng A* "lạc quan trung tính" để tìm các lối tắt tiềm năng dựa trên kiến thức hiện có.
+| Stage | Description |
+|-------|-------------|
+| **Stage 1 — Explore to Center** | A\* with bias toward unvisited cells; runs until any center goal is reached |
+| **Stage 2 — Explore Return** | Returns to start while mapping remaining unvisited cells on the main corridor |
+| **Stage 3 — Fast Run** | Executes the optimal known path at full speed (`forbid_unvisited = true`) |
 
-- **Giai đoạn 6 & 7: Chạy tốc độ (A* An toàn)**
-  - Sau khi đã hoàn tất tất cả các lượt chạy học hỏi, robot sẽ có một bản đồ kiến thức rất đầy đủ.
-  - Nó dùng A* "bi quan" (ưu tiên đường đã biết và có phí phạt cho khúc cua) để tính ra con đường an toàn và tối ưu nhất.
-  - Cuối cùng, nó thực hiện một lượt "chạy tốc độ" (Speed Run) không học hỏi, chỉ đi theo con đường tốt nhất đã tính.
+**Pathfinding details:**
+- Binary min-heap open set (no `std::priority_queue`)
+- Manhattan distance heuristic
+- Turn cost: 90° = 40, 180° = 200, consecutive turns = +50
+- U-turns only allowed when forward path is blocked
+- Max iterations capped to prevent MCU lockup
 
-## Cách sử dụng
+---
 
-### 1. Chạy mô phỏng trên máy tính
+## Hardware
 
-Mở terminal và sử dụng các lệnh sau:
+| Component | Details |
+|-----------|---------|
+| MCU | Raspberry Pi Pico |
+| Motors | 2× DC motors with gear reduction |
+| Encoders | Quadrature rotary encoders (1250 counts/cell) |
+| IR Sensors | 4× Sharp IR (left, front-left, front-right, right) |
+| Power | Min. **5V** input required |
+
+### Pin Assignments
+
+| Function | Pin |
+|----------|-----|
+| Motor A PWM / Direction | 6, AIN1, AIN2 |
+| Motor B PWM / Direction | 0, BIN1, BIN2 |
+| Encoder Left | 18, 19 |
+| Encoder Right | 22, 23 |
+| IR Sensors (ADC) | 26, 27, 28, 29 |
+| IR LED | 9 |
+| Buttons | 24, 25 |
+| Buzzer | 7 |
+| LED Indicator | 8 |
+| I2C (SDA/SCL) | 20, 21 |
+
+---
+
+## Project Structure
+
+```
+micro_mouse_floodfill_14-3/
+├── src/
+│   └── main.cpp              # Hardware firmware entry point (Pico)
+├── simulation/
+│   ├── main_sim.cpp          # Interactive desktop simulation
+│   └── old_sim.cpp
+├── lib/
+│   ├── maze/                 # Core A* pathfinding & maze data structures
+│   ├── encoder_motor/        # PID motor control & movement primitives
+│   ├── ir_sensor/            # IR wall detection
+│   ├── Pin_and_init/         # Pin definitions, direction enum, initialization
+│   └── map_storage/          # Maze persistence
+├── map/
+│   ├── custom_maze.txt       # Default maze layout
+│   └── custom_maze_uet*.txt  # UET competition maze variants
+├── build/                    # Compiled simulation binary
+└── platformio.ini            # PlatformIO build config
+```
+
+---
+
+## Getting Started
+
+### Desktop Simulation
+
+Requires a C++11 compiler (GCC/Clang/MSVC).
 
 ```bash
-# Biên dịch chương trình mô phỏng
+# Compile
 g++ -std=c++11 -I. simulation/main_sim.cpp lib/maze/maze.cpp -o build/main_sim
 
-# Chạy chương trình mô phỏng
+# Run
 ./build/main_sim
 ```
 
-### 2. Triển khai trên Robot thật (PlatformIO)
+The simulation menu lets you:
+1. Input walls manually
+2. Run full A\* exploration
+3. Visualize the maze and path in the terminal
+4. Generate the move sequence
 
-1.  **Mở dự án:** Mở thư mục này bằng Visual Studio Code với tiện ích PlatformIO.
-2.  **Hiệu chỉnh:** Mở tệp `src/main.cpp` và hiệu chỉnh các giá trị trong hàm `update_walls_from_sensors` cho phù hợp với cảm biến của bạn.
-3.  **Tải lên:**
-    -   Biên dịch và nạp chương trình vào robot (PlatformIO: Upload).
-    -   Tải lên hệ thống tệp (PlatformIO: Upload Filesystem Image).
-4.  **Điều khiển:**
-    -   Mở Serial Monitor (tốc độ 115200).
-    -   Gửi một ký tự bất kỳ để robot bắt đầu chạy.
-    -   Gửi lệnh `delete` để xóa bản đồ đã lưu trong bộ nhớ của robot.
+### Hardware Deployment (PlatformIO)
 
-## Cấu trúc thư mục
+1. Install [VS Code](https://code.visualstudio.com/) + [PlatformIO extension](https://platformio.org/)
+2. Open this project folder
+3. Calibrate IR thresholds in [lib/Pin_and_init/variables.h](lib/Pin_and_init/variables.h) if needed
+4. **Build & Upload**: `PlatformIO: Build` → `PlatformIO: Upload`
+5. Open Serial Monitor at **115200 baud**
+6. Press the button (or send any character) to start the robot
 
--   `lib/`: Chứa các thư viện cốt lõi (maze, robot_control, ...).
--   `src/`: Chứa mã nguồn chính (`main.cpp`) để nạp cho robot.
--   `simulation/`: Chứa mã nguồn mô phỏng (`main_sim.cpp`) để chạy trên máy tính.
--   `map/`: Chứa các tệp văn bản định nghĩa mê cung cho môi trường mô phỏng.
--   `build/`: Chứa tệp thực thi của chương trình mô phỏng sau khi biên dịch.
+> **Note:** The robot waits 3 seconds on startup before beginning exploration.
+
+---
+
+## Maze Format
+
+Mazes are stored as ASCII text files:
+
+```
++---+---+---+
+|   |       |
++   +---+   +
+|       |   |
++---+---+---+
+```
+
+- `+` = cell corners
+- `-` = horizontal walls
+- `|` = vertical walls
+- Spaces = open passages
+
+The goal is the 2×2 center region: cells **(7,7), (7,8), (8,7), (8,8)** in a 16×16 grid.
+
+---
+
+## Configuration
+
+Key tunable parameters in [lib/Pin_and_init/variables.h](lib/Pin_and_init/variables.h):
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `IR_THRESHOLD` | ~100 | ADC level to detect a wall |
+| `CELL_ENCODER_COUNT` | 1250 | Encoder counts per cell |
+| `MOTOR_DEADZONE` | 20 | Minimum PWM to overcome stiction |
+| `SPEED_SLOW/MED/FAST` | 50/60/60+ | PWM speed levels |
+
+---
+
+## Dependencies
+
+- [PlatformIO](https://platformio.org/) — build system for embedded
+- [FreeRTOS](https://freertos.org/) — RTOS on Pico (via PlatformIO framework)
+- C++11 standard — simulation only
+
+---
+
+## License
+
+This project is open-source. Feel free to use and adapt for your own Micromouse build.
